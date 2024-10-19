@@ -5,5 +5,17 @@ from dotenv import load_dotenv
 load_dotenv()
 
 DISCORD_TOKEN = os.getenv("DISCORD_TOKEN")
-VERSION_NUMBER = os.getenv("VERSION_NUMBER")
-WS_URL="wss://gateway.discord.gg"
+API_VERSION = "v10"
+BASE_URL = f"https://discord.com/api/{API_VERSION}"
+
+DISPATCH = 0
+HEARTBEAT = 1
+IDENTIFY = 2
+STATUS_UPDATE = 3
+VOICE_UPDATE = 4
+RESUME = 6
+RECONNECT = 7
+REQUEST_MEMBERS = 8
+INVALID_SESSION = 9
+HELLO = 10
+HEARTBEAT_ACK = 11
