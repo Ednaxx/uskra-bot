@@ -26,11 +26,6 @@ class Gateway:
         await self.ws.send(json.dumps(message))
         logging.info(f" Message sent: {message}")
 
-    async def ping(self, message: dict, interval: int | None):
-        while True:
-            await asyncio.sleep(interval)
-            await self.send_message(message)
-
     async def listen(self, treat_events: Callable):
         async for message in self.ws:
             await treat_events(message)

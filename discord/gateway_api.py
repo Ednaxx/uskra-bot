@@ -42,7 +42,7 @@ class GatewayAPI(Gateway):
 
     async def lifecycle(self):
         await self.identify()
-        await asyncio.gather(self.heartbeat(), self.listen(self.treat_events))
+        await asyncio.gather(self.listen(self.treat_events), self.heartbeat())
 
     async def identify(self):
         data = {
@@ -65,8 +65,10 @@ class GatewayAPI(Gateway):
         await self.send_message(message.__dict__)
 
     async def heartbeat(self):
-        message = GatewayMessage(HEARTBEAT, self.sequence, None, None)
-        await self.ping(message.__dict__, self.interval)
+        while self.interval is not None:
+            await asyncio.sleep(self.interval)
+            message = GatewayMessage(HEARTBEAT, self.sequence, None, None).__dict__
+            await self.send_message(message)
 
     async def treat_events(self, message: str | bytes):
         event = decode_msg(message)
