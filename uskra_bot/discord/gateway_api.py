@@ -2,11 +2,11 @@ import asyncio
 import json
 import logging
 from dataclasses import dataclass
-import requests
 import websockets
 from websockets import WebSocketClientProtocol
-
-from constants import *
+from api import request
+from uskra_bot.discord.gateway import Gateway
+from uskra_bot.util.constants import *
 
 
 @dataclass
@@ -32,29 +32,18 @@ def decode_msg(msg):
     return GatewayMessage(obj["op"], d, s, t)
 
 
-class Gateway:
+class GatewayAPI(Gateway):
     def __init__(self, token: str, url: str):
-        self.token = token
-        self.url = url
-        self.ws: WebSocketClientProtocol | None = None
+        super().__init__(token, url)
         self.sequence: int | None = None
         self.interval: int | None = None
 
-    async def start_connection(self):
-        try:
-            async with websockets.connect(self.url) as self.ws:
-                await self.identify()
+    async def connect(self):
+        await self.start_connection(self.__lifecycle__)
 
-                await asyncio.gather(
-                    self.heartbeat(),
-                    self.listen()
-                )
-
-        except websockets.exceptions.ConnectionClosed as e:
-            logging.error(f" Connection closed: {e}")
-
-        except Exception as e:
-            logging.error(f" An error occurred: {e}")
+    async def __lifecycle__(self):
+        await self.identify()
+        await asyncio.gather(self.heartbeat(), self.listen())
 
     async def identify(self):
         data = {
@@ -111,10 +100,8 @@ class Gateway:
                     message = event.d["content"]
                     channel = event.d["channel_id"]
                     if message == "!ping":
-                        response = requests.post(BASE_URL + "/channels/" + channel + "/messages", json={"content": "Pong!"}, headers={
-                            "Authorization": f"Bot {DISCORD_TOKEN}"})
-                        print(response.json())
-                        logging.info(" Pong sent")
+                        logging.info(" Received !ping")
+                        request(f"/channels/{channel}/messages", body={"content": "Pong!"})
 
             elif event.op == HEARTBEAT_ACK:
                 logging.info(" Heartbeat acknowledged")
