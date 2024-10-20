@@ -14,5 +14,5 @@ if __name__ == "__main__":
         ws_url = ws_url.json()["url"]
         logging.info(f"Connecting to {ws_url}/{str(API_VERSION)}...")
 
-        gateway = GatewayAPI(DISCORD_TOKEN, f"{ws_url}/{str(API_VERSION)}")
-        asyncio.run(gateway.start_connection())
+        gateway = GatewayAPI(DISCORD_TOKEN)
+        asyncio.run(gateway.connect(f"{ws_url}/{str(API_VERSION)}"))

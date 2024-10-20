@@ -7,14 +7,13 @@ from websockets import WebSocketClientProtocol
 
 
 class Gateway:
-    def __init__(self, token: str, url: str):
+    def __init__(self, token: str):
         self.token = token
-        self.url = url
         self.ws: WebSocketClientProtocol | None = None
 
-    async def start_connection(self, lifecycle: Callable):
+    async def start_connection(self, url: str, lifecycle: Callable):
         try:
-            async with websockets.connect(self.url) as self.ws:
+            async with websockets.connect(url) as self.ws:
                 await lifecycle()
 
         except websockets.exceptions.ConnectionClosed as e:
@@ -28,7 +27,7 @@ class Gateway:
         logging.info(f" Message sent: {message}")
 
     async def ping(self, message: dict, interval: int | None):
-        while interval is not None:
+        while True:
             await asyncio.sleep(interval)
             await self.send_message(message)
 

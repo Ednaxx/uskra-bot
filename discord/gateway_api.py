@@ -1,8 +1,9 @@
 import asyncio
 import json
 import logging
+import sys
 from dataclasses import dataclass
-from api import request
+from discord.api import request
 from discord.gateway import Gateway
 from util.constants import *
 
@@ -31,13 +32,13 @@ def decode_msg(msg):
 
 
 class GatewayAPI(Gateway):
-    def __init__(self, token: str, url: str):
-        super().__init__(token, url)
+    def __init__(self, token: str):
+        super().__init__(token)
         self.sequence: int | None = None
         self.interval: int | None = None
 
-    async def connect(self):
-        await self.start_connection(self.lifecycle)
+    async def connect(self, url: str):
+        await self.start_connection(url, self.lifecycle)
 
     async def lifecycle(self):
         await self.identify()
@@ -46,34 +47,22 @@ class GatewayAPI(Gateway):
     async def identify(self):
         data = {
             "token": self.token,
-            "intents": 53575421,
+            "intents": BOT_INTENTS,
             "properties": {
-                "os": "windows",
+                "os": sys.platform,
                 "browser": "my_library",
                 "device": "my_library"
             },
             "presence": {
                   "activities": [{
-                    "name": "Fat Marcos"
+                    "name": BOT_NAME
                   }],
                   "status": "online",
                   "afk": False
                 },
         }
-        message = GatewayMessage(IDENTIFY, data, self.sequence, "IDENTIFY")
+        message = GatewayMessage(IDENTIFY, data, None, None)
         await self.send_message(message.__dict__)
-
-        response = await self.ws.recv()
-        event = decode_msg(response)
-
-        logging.info(" Received hello: %s)", event)
-
-        if event.op != 10:
-            logging.warning("Unexpected reply: %s", event)
-            await self.ws.close(code=4000, reason="Unexpected reply")
-
-        self.interval = event.d['heartbeat_interval'] / 1000
-        self.sequence = event.s
 
     async def heartbeat(self):
         message = GatewayMessage(HEARTBEAT, self.sequence, None, None)
@@ -83,7 +72,11 @@ class GatewayAPI(Gateway):
         event = decode_msg(message)
         logging.info(" Received event: %s", event)
 
-        if event.op == DISPATCH:
+        if event.op == HELLO:
+            self.interval = event.d['heartbeat_interval'] / 1000
+            self.sequence = event.s
+
+        elif event.op == DISPATCH:
             if event.t == "READY":
                 self.sequence = event.s
                 logging.info(" Session ID: %s", event.d["session_id"])
@@ -93,22 +86,22 @@ class GatewayAPI(Gateway):
                 if event.d["content"][0] == "!":
                     self.treat_commands(event)
 
-            elif event.op == HEARTBEAT_ACK:
-                self.sequence = event.s
-                logging.info(" Heartbeat acknowledged")
+        elif event.op == HEARTBEAT_ACK:
+            self.sequence = event.s
+            logging.info(" Heartbeat acknowledged")
 
-            elif event.op == INVALID_SESSION:
-                logging.warning(" Invalid session")
-                await self.ws.close(code=4000, reason="Invalid session")
+        elif event.op == INVALID_SESSION:
+            logging.error(" Invalid session")
+            await self.ws.close(code=4000, reason="Invalid session")
 
-            else:
-                logging.warning(" Unexpected event: %s", event)
-                await self.ws.close(code=4000, reason="Unexpected event")
+        else:
+            logging.error(" Unexpected event: %s", event)
+            await self.ws.close(code=4000, reason="Unexpected event")
 
     def treat_commands(self, event: GatewayMessage):
-        message = event.d["content"]
+        message = event.d["content"].split()
         channel = event.d["channel_id"]
 
-        if message == "!ping":
+        if message[0] == "!ping":
             logging.info(" Received !ping")
-            request(f"/channels/{channel}/messages", body={"content": "Pong!"})
+            request(f"/channels/{channel}/messages", "POST", {"content": "Pong!"})

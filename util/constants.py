@@ -8,6 +8,9 @@ DISCORD_TOKEN = os.getenv("DISCORD_TOKEN")
 API_VERSION = "v10"
 BASE_URL = f"https://discord.com/api/{API_VERSION}"
 
+BOT_INTENTS = 53575421
+BOT_NAME = "Fat Marcos"
+
 DISPATCH = 0
 HEARTBEAT = 1
 IDENTIFY = 2
