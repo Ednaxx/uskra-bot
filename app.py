@@ -1,5 +1,5 @@
-from uskra_bot.util.constants import *
-from uskra_bot.discord.gateway_api import GatewayAPI
+from util.constants import *
+from discord.gateway_api import GatewayAPI
 from discord.api import request
 import asyncio
 import logging

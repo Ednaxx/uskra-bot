@@ -1,6 +1,6 @@
 import logging
 from requests import HTTPError
-from uskra_bot.util.constants import *
+from util.constants import *
 import requests
 
 

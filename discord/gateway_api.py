@@ -2,17 +2,15 @@ import asyncio
 import json
 import logging
 from dataclasses import dataclass
-import websockets
-from websockets import WebSocketClientProtocol
 from api import request
-from uskra_bot.discord.gateway import Gateway
-from uskra_bot.util.constants import *
+from discord.gateway import Gateway
+from util.constants import *
 
 
 @dataclass
 class GatewayMessage:
     op: int
-    d: dict | None
+    d: dict | None | int
     s: int | None
     t: str | None
 
@@ -39,11 +37,11 @@ class GatewayAPI(Gateway):
         self.interval: int | None = None
 
     async def connect(self):
-        await self.start_connection(self.__lifecycle__)
+        await self.start_connection(self.lifecycle)
 
-    async def __lifecycle__(self):
+    async def lifecycle(self):
         await self.identify()
-        await asyncio.gather(self.heartbeat(), self.listen())
+        await asyncio.gather(self.heartbeat(), self.listen(self.treat_events))
 
     async def identify(self):
         data = {
@@ -63,14 +61,12 @@ class GatewayAPI(Gateway):
                 },
         }
         message = GatewayMessage(IDENTIFY, data, self.sequence, "IDENTIFY")
-
-        await self.ws.send(json.dumps(message.__dict__))
-        logging.info(" Identification sent")
+        await self.send_message(message.__dict__)
 
         response = await self.ws.recv()
         event = decode_msg(response)
 
-        logging.info(" Received event: %s)", event)
+        logging.info(" Received hello: %s)", event)
 
         if event.op != 10:
             logging.warning("Unexpected reply: %s", event)
@@ -80,30 +76,25 @@ class GatewayAPI(Gateway):
         self.sequence = event.s
 
     async def heartbeat(self):
-        while self.interval is not None:
-            await asyncio.sleep(self.interval)
-            message = GatewayMessage(HEARTBEAT, None, self.sequence, "HEARTBEAT")
-            await self.ws.send(json.dumps(message.__dict__))
+        message = GatewayMessage(HEARTBEAT, self.sequence, None, None)
+        await self.ping(message.__dict__, self.interval)
 
-            logging.info(" Heartbeat sent: %s", message)
+    async def treat_events(self, message: str | bytes):
+        event = decode_msg(message)
+        logging.info(" Received event: %s", event)
 
-    async def listen(self):
-        async for message in self.ws:
-            event = decode_msg(message)
-            logging.info(" Received event: %s", event)
+        if event.op == DISPATCH:
+            if event.t == "READY":
+                self.sequence = event.s
+                logging.info(" Session ID: %s", event.d["session_id"])
 
-            if event.op == DISPATCH:
-                if event.t == "READY":
-                    self.sequence = event.s
-                    logging.info(" Session ID: %s", event.d["session_id"])
-                elif event.t == "MESSAGE_CREATE":
-                    message = event.d["content"]
-                    channel = event.d["channel_id"]
-                    if message == "!ping":
-                        logging.info(" Received !ping")
-                        request(f"/channels/{channel}/messages", body={"content": "Pong!"})
+            elif event.t == "MESSAGE_CREATE":
+                self.sequence = event.s
+                if event.d["content"][0] == "!":
+                    self.treat_commands(event)
 
             elif event.op == HEARTBEAT_ACK:
+                self.sequence = event.s
                 logging.info(" Heartbeat acknowledged")
 
             elif event.op == INVALID_SESSION:
@@ -113,3 +104,11 @@ class GatewayAPI(Gateway):
             else:
                 logging.warning(" Unexpected event: %s", event)
                 await self.ws.close(code=4000, reason="Unexpected event")
+
+    def treat_commands(self, event: GatewayMessage):
+        message = event.d["content"]
+        channel = event.d["channel_id"]
+
+        if message == "!ping":
+            logging.info(" Received !ping")
+            request(f"/channels/{channel}/messages", body={"content": "Pong!"})

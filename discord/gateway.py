@@ -1,13 +1,9 @@
 import asyncio
 import json
 import logging
-from dataclasses import dataclass
 from typing import Callable
-
 import websockets
 from websockets import WebSocketClientProtocol
-from api import request
-from uskra_bot.util.constants import *
 
 
 class Gateway:
@@ -29,8 +25,13 @@ class Gateway:
 
     async def send_message(self, message: dict):
         await self.ws.send(json.dumps(message))
+        logging.info(f" Message sent: {message}")
 
     async def ping(self, message: dict, interval: int | None):
         while interval is not None:
             await asyncio.sleep(interval)
             await self.send_message(message)
+
+    async def listen(self, treat_events: Callable):
+        async for message in self.ws:
+            await treat_events(message)
