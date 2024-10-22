@@ -1,9 +1,8 @@
 import asyncio
 import json
 import logging
-import sys
 from dataclasses import dataclass
-from discord.api import request
+from typing import Callable
 from discord.gateway import Gateway
 from util.constants import *
 
@@ -32,10 +31,12 @@ def decode_msg(msg):
 
 
 class GatewayAPI(Gateway):
-    def __init__(self, token: str):
+    def __init__(self, token: str, identity: dict, treat_dispatch: Callable = None):
         super().__init__(token)
         self.sequence: int | None = None
         self.interval: int | None = None
+        self.identity = identity
+        self.treat_dispatch = treat_dispatch
 
     async def connect(self, url: str):
         await self.start_connection(url, self.lifecycle)
@@ -45,23 +46,7 @@ class GatewayAPI(Gateway):
         await asyncio.gather(self.listen(self.treat_events), self.heartbeat())
 
     async def identify(self):
-        data = {
-            "token": self.token,
-            "intents": BOT_INTENTS,
-            "properties": {
-                "os": sys.platform,
-                "browser": "my_library",
-                "device": "my_library"
-            },
-            "presence": {
-                  "activities": [{
-                    "name": BOT_NAME
-                  }],
-                  "status": "online",
-                  "afk": False
-                },
-        }
-        message = GatewayMessage(IDENTIFY, data, None, None)
+        message = GatewayMessage(IDENTIFY, self.identity, None, None)
         await self.send_message(message.__dict__)
 
     async def heartbeat(self):
@@ -73,37 +58,25 @@ class GatewayAPI(Gateway):
     async def treat_events(self, message: str | bytes):
         event = decode_msg(message)
         logging.info(" Received event: %s", event)
+        self.sequence = event.s
 
         if event.op == HELLO:
             self.interval = event.d['heartbeat_interval'] / 1000
-            self.sequence = event.s
 
-        elif event.op == DISPATCH:
-            if event.t == "READY":
-                self.sequence = event.s
-                logging.info(" Session ID: %s", event.d["session_id"])
+        elif event.op == DISPATCH and event.t == "READY":
+            logging.info(" Session ID: %s", event.d["session_id"])
 
-            elif event.t == "MESSAGE_CREATE":
-                self.sequence = event.s
-                if event.d["content"][0] == "!":
-                    self.treat_commands(event)
+        elif event.op == DISPATCH and self.treat_dispatch is not None:
+            self.treat_dispatch(event)
+
+        # elif event.op == INVALID_SESSION:
+
+        # elif event.op == RECONNECT:
+        # TODO - Implement disconnect/reconnect routine
 
         elif event.op == HEARTBEAT_ACK:
-            self.sequence = event.s
             logging.info(" Heartbeat acknowledged")
-
-        elif event.op == INVALID_SESSION:
-            logging.error(" Invalid session")
-            await self.ws.close(code=4000, reason="Invalid session")
 
         else:
             logging.error(" Unexpected event: %s", event)
             await self.ws.close(code=4000, reason="Unexpected event")
-
-    def treat_commands(self, event: GatewayMessage):
-        message = event.d["content"].split()
-        channel = event.d["channel_id"]
-
-        if message[0] == "!ping":
-            logging.info(" Received !ping")
-            request(f"/channels/{channel}/messages", "POST", {"content": "Pong!"})

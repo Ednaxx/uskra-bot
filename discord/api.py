@@ -4,11 +4,11 @@ from util.constants import *
 import requests
 
 
-def request(path: str, method: str = "GET", body: dict | None = None) -> requests.Response:
+def request(path: str, auth_token: str, method: str = "GET", body: dict | None = None) -> requests.Response:
     logging.info(f" Requesting {method} {path}{' ' + str(body) if (body is not None) else ''}...")
 
     url = BASE_URL + path
-    headers = {"Authorization": f"Bot {DISCORD_TOKEN}"}
+    headers = {"Authorization": f"Bot {auth_token}"}
 
     try:
         response = requests.request(method, url, json=body, headers=headers)

@@ -1,18 +1,21 @@
-import asyncio
 import json
 import logging
+from abc import ABC
 from typing import Callable
 import websockets
 from websockets import WebSocketClientProtocol
 
 
-class Gateway:
+class Gateway(ABC):
     def __init__(self, token: str):
         self.token = token
         self.ws: WebSocketClientProtocol | None = None
 
     async def start_connection(self, url: str, lifecycle: Callable):
         try:
+            if self.token is None:
+                raise ValueError('Token must be provided. Set your ".env".')
+
             async with websockets.connect(url) as self.ws:
                 await lifecycle()
 
