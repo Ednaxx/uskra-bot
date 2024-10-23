@@ -16,7 +16,7 @@ def request(path: str, auth_token: str, method: str = "GET", body: dict | None =
         logging.info(f" Response: {response.json()}")
         return response
     except HTTPError as e:
-        logging.error(" HTTP Error: " + str(e))
+        logging.warning(" HTTP Error: " + str(e))
         return e.response
 
 

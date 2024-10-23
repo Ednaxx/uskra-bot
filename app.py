@@ -17,8 +17,8 @@ class Bot:
             "intents": BOT_INTENTS,
             "properties": {
                 "os": sys.platform,
-                "browser": "my_library",
-                "device": "my_library"
+                "browser": APP_NAME,
+                "device": APP_NAME
             },
             "presence": {
                 "activities": [{
@@ -29,9 +29,9 @@ class Bot:
             }
         }
 
-        await GatewayAPI(self.token, identity, self.treat_dispatch).connect(ws_url)
+        await GatewayAPI(self.token, ws_url, identity, self.treat_dispatch_events).connect()
 
-    def treat_dispatch(self, event: GatewayMessage):
+    def treat_dispatch_events(self, event: GatewayMessage):
         if event.t == "MESSAGE_CREATE":
             if event.d["content"][0] == "!":
                 self.treat_commands(event)
@@ -51,6 +51,6 @@ if __name__ == "__main__":
     response = request("/gateway", DISCORD_TOKEN)
 
     if response is not None:
-        ws_url = f"{response.json()["url"]}/{str(API_VERSION)}"
+        ws_url = f"{response.json()["url"]}/{API_VERSION}"
         logging.info(f"Connecting to {ws_url}...")
         asyncio.run(Bot(DISCORD_TOKEN, ws_url).start())

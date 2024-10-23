@@ -10,6 +10,7 @@ BASE_URL = f"https://discord.com/api/{API_VERSION}"
 
 BOT_INTENTS = 53575421
 BOT_NAME = "Fat Marcos"
+APP_NAME = "Uskra Bot"
 
 DISPATCH = 0
 HEARTBEAT = 1
