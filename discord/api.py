@@ -1,6 +1,6 @@
 import logging
 from requests import HTTPError
-from util.constants import *
+from env import *
 import requests
 
 
@@ -23,5 +23,5 @@ def request(path: str, auth_token: str, method: str = "GET", body: dict | None =
 if __name__ == "__main__":
     logging.basicConfig(encoding='utf-8', level=logging.INFO)
 
-    response = request("/gateway/bot")
+    response = request("/gateway/bot", DISCORD_TOKEN)
     print(response)

@@ -3,16 +3,15 @@ import json
 import logging
 from dataclasses import dataclass
 from typing import Callable
-
 import websockets
-
 from discord.gateway import Gateway
-from util.constants import *
+from discord.util.OPs import OPs
+from env import API_VERSION
 
 
 @dataclass
 class GatewayMessage:
-    op: int
+    op: OPs
     d: dict | None | int
     s: int | None
     t: str | None
@@ -20,17 +19,7 @@ class GatewayMessage:
 
 def decode_msg(msg):
     obj = json.loads(msg)
-    d = None
-    s = None
-    t = None
-
-    if "d" in obj:
-        d = obj["d"]
-    if "s" in obj:
-        s = obj["s"]
-    if "t" in obj:
-        t = obj["t"]
-    return GatewayMessage(obj["op"], d, s, t)
+    return GatewayMessage(OPs(obj["op"]), obj["d"], obj["s"], obj["t"])
 
 
 class GatewayAPI(Gateway):
@@ -61,7 +50,7 @@ class GatewayAPI(Gateway):
     async def reconnect(self):
         try:
             async with websockets.connect(self.url) as self.ws:
-                message = GatewayMessage(RESUME, {"token": self.token, "session_id": self.session_id, "seq": self.sequence}, None, None)
+                message = GatewayMessage(OPs.RESUME, {"token": self.token, "session_id": self.session_id, "seq": self.sequence}, None, None)
                 await self.send_message(message.__dict__)
 
         except websockets.exceptions.ConnectionClosed as e:
@@ -73,13 +62,13 @@ class GatewayAPI(Gateway):
             await self.reconnect()
 
     async def identify(self):
-        message = GatewayMessage(IDENTIFY, self.identity, None, None)
+        message = GatewayMessage(OPs.IDENTIFY, self.identity, None, None)
         await self.send_message(message.__dict__)
 
     async def heartbeat(self):
         while self.interval is not None:
             await asyncio.sleep(self.interval)
-            message = GatewayMessage(HEARTBEAT, self.sequence, None, None).__dict__
+            message = GatewayMessage(OPs.HEARTBEAT, self.sequence, None, None).__dict__
             await self.send_message(message)
 
     async def treat_events(self, message: str | bytes):
@@ -87,24 +76,24 @@ class GatewayAPI(Gateway):
         logging.info(" Received event: %s", event)
         self.sequence = event.s if event.s is not None else self.sequence
 
-        if event.op == HELLO:
+        if event.op == OPs.HELLO:
             self.interval = event.d['heartbeat_interval'] / 1000
 
-        elif event.op == DISPATCH and event.t == "READY":
+        elif event.op == OPs.DISPATCH and event.t == "READY":
             logging.info(" Session ID: %s", event.d["session_id"])
             self.session_id = event.d["session_id"]
             self.url = f"{event.d["resume_gateway_url"]}/{API_VERSION}"
 
-        elif event.op == DISPATCH and self.treat_dispatch_events is not None:
+        elif event.op == OPs.DISPATCH and self.treat_dispatch_events is not None:
             self.treat_dispatch_events(event)
 
-        elif event.op == INVALID_SESSION:
+        elif event.op == OPs.INVALID_SESSION:
             logging.error(" Invalid session")
 
-        elif event.op == RECONNECT:
+        elif event.op == OPs.RECONNECT:
             logging.info(" Reconnect event")
 
-        elif event.op == HEARTBEAT_ACK:
+        elif event.op == OPs.HEARTBEAT_ACK:
             logging.info(" Heartbeat acknowledged")
 
         else:
