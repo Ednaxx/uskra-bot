@@ -1,5 +1,4 @@
 FROM python:3.12-slim
-LABEL authors="Ednaxx"
 
 WORKDIR /usr/src/app
 
